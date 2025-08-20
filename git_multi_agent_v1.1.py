@@ -108,6 +108,29 @@ class GitManager:
         except Exception as e:
             return f"Error getting status: {e}"
 
+    def list_branches(self, repo_url: str , include_remote: bool = True):
+        """
+        List all branches in the repository.
+        Args:
+            include_remote: If False, excludes remote branches.
+        Returns:
+            A dictionary with local and/or remote branches.
+        """
+        repo=None
+        clone_path = repo_url.split('github.com/')[-1].replace(".git","")
+        if os.path.exists(clone_path):
+            repo =Repo(clone_path)
+        else:
+            return "Repository not cloned. Clone it first."
+
+        try:
+            branches = {"local": [head.name for head in repo.heads]}
+            if include_remote:
+                branches["remote"] = [ref.name for ref in repo.remotes.origin.refs]
+            return branches
+        except Exception as e:
+            return f"Error listing branches: {e}"
+
     def switch_branch(self, branch_name: str,repo_url: str):
         """
         Switch to an existing branch.
@@ -163,7 +186,7 @@ class GitManager:
                 repo.index.commit(commit_message)
                 return(f"Committed changes with message: '{commit_message}'")
             else:
-                return("No changes to commit. Task Completed Successfully.")
+                return("No changes to commit.")
         except GitCommandError as e:
             return(f"Error committing changes: {e}")
         
@@ -307,21 +330,117 @@ class GitManager:
             return(f"Pull request created: {pr_url}")
         else:
             return(f"Failed to create PR: {response.status_code} - {response.text}")
+        
+    def merge_branch(self, repo_url: str, source_branch: str, target_branch: str = None):
+        """
+        Merge source_branch into target_branch.
+        Args:
+            repo_url: Repository URL
+            source_branch: Branch to merge from.
+            target_branch: Branch to merge into (defaults to current branch).
+        """
+        repo=None
+        clone_path = repo_url.split('github.com/')[-1].replace(".git","")
+        if os.path.exists(clone_path):
+            repo =Repo(clone_path)
+        else:
+            return "Repository not cloned. Clone it first."
+
+        try:
+            target_branch = target_branch or repo.active_branch.name
+            git = repo.git
+
+            # Checkout target branch first
+            git.checkout(target_branch)
+            git.merge(source_branch)
+
+            return f"Branch '{source_branch}' merged into '{target_branch}' successfully."
+        except GitCommandError as e:
+            if "CONFLICT" in str(e):
+                return f"Merge conflict occurred while merging '{source_branch}' into '{target_branch}'."
+            return f"Error merging branches: {e}"
+
+    def abort_merge(self,repo_url: str):
+        """
+        Abort an ongoing merge (like 'git merge --abort').
+        Args:
+            repo_url: Repository URL
+        """
+        repo=None
+        clone_path = repo_url.split('github.com/')[-1].replace(".git","")
+        if os.path.exists(clone_path):
+            repo =Repo(clone_path)
+        else:
+            return "Repository not cloned. Clone it first."
+
+        try:
+            repo.git.merge("--abort")
+            return "Merge aborted successfully."
+        except GitCommandError as e:
+            return f"Error aborting merge: {e}"
+
+    def continue_merge(self, repo_url: str, commit_message: str = "Merge conflict resolved"):
+        """
+        Continue a merge after conflicts are resolved.
+        Args:
+            repo_url: Repository URL
+            commit_message: Commit message for merge resolution.
+        """
+        repo=None
+        clone_path = repo_url.split('github.com/')[-1].replace(".git","")
+        if os.path.exists(clone_path):
+            repo =Repo(clone_path)
+        else:
+            return "Repository not cloned. Clone it first."
+
+        try:
+            if repo.is_dirty(untracked_files=True):
+                repo.index.commit(commit_message)
+                return "Merge continued and committed after resolving conflicts."
+            else:
+                return "No changes to commit. Ensure conflicts are resolved."
+        except GitCommandError as e:
+            return f"Error continuing merge: {e}"
+
+    def get_merge_conflicts(self,repo_url: str):
+        """
+        List files with merge conflicts.
+        Args:
+            repo_url: Repository URL
+        Returns:
+            A list of conflicted file paths.
+        """
+        repo=None
+        clone_path = repo_url.split('github.com/')[-1].replace(".git","")
+        if os.path.exists(clone_path):
+            repo =Repo(clone_path)
+        else:
+            return "Repository not cloned. Clone it first."
+
+        try:
+            conflicts = []
+            for path, blobs in repo.index.unmerged_blobs().items():
+                conflicts.append(path)
+            return conflicts if conflicts else "No merge conflicts."
+        except Exception as e:
+            return f"Error checking merge conflicts: {e}"
+
     
 
 # async def main(repo_url : str, cloned_repo_path: str = f"./Cloned_Repos") -> None:
 async def main(repo_url_list : list) -> None:
 
     git_manager = GitManager()
+    tools = [git_manager.clone_repo, git_manager.issue_post_comment, git_manager.create_branch,git_manager.list_branches, git_manager.commit_changes, git_manager.push_changes, git_manager.switch_branch, git_manager.pull_changes, git_manager.create_pull_request, git_manager.get_status, git_manager.get_issue, git_manager.abort_merge, git_manager.get_merge_conflicts, git_manager.merge_branch, git_manager.continue_merge]
 
     git_assistant = AssistantAgent(
     "GitAssistant",
     model_client=model_client,
-    tools=[git_manager.clone_repo, git_manager.issue_post_comment,git_manager.create_branch,git_manager.commit_changes,git_manager.push_changes,git_manager.switch_branch,git_manager.pull_changes,git_manager.create_pull_request,git_manager.get_status,git_manager.get_issue],  # Register the tool.
+    tools=tools,  # Register the tool.
     system_message="You are a helpful AI assistant agent, capable of completing specified git related operations with provided tools.",
 )
 
-    team = MagenticOneGroupChat([git_assistant], model_client=model_client, max_turns=3, description="Only do the asked task.")
+    team = MagenticOneGroupChat([git_assistant], model_client=model_client, max_stalls=2, description="Only do the asked task.")
 
     # task = f"""
     # clone this GitHub repository:
@@ -346,9 +465,11 @@ async def main(repo_url_list : list) -> None:
     # """
  
     task = f"""
-      clone this repo
+
+      switch to main branch and push the changes
       Repo URLs: {repo_url_list}
     """
+   
     async for message in team.run_stream(task=task, output_task_messages=True):  # type: ignore
         if isinstance(message, TaskResult):
             print("Stop Reason:", message.stop_reason)
@@ -356,5 +477,5 @@ async def main(repo_url_list : list) -> None:
             print(f"{message.source} - {message.content}")
     # team.reset()
 
-repo_1 = "https://github.com/suraj0312/GitMagenticAgent.git"
+repo_1 = "https://github.com/utkarsh-alpuria/Git_Magentic_Test_Repo.git"
 asyncio.run(main([repo_1]))
