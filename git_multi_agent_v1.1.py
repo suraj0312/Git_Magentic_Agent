@@ -92,7 +92,7 @@ class GitManager:
         repo=None
         clone_path = repo_url.split('github.com/')[-1].replace(".git","")
         if os.path.exists(clone_path):
-            repo =Repo(clone_path)
+            repo = Repo(clone_path)
         else:
             return "Repository not cloned. Clone it first."
 
@@ -172,7 +172,7 @@ class GitManager:
         repo=None
         clone_path = repo_url.split('github.com/')[-1].replace(".git","")
         if os.path.exists(clone_path):
-            repo =Repo(clone_path)
+            repo = Repo(clone_path)
         else:
             return("Repository not loaded. Clone it first.")
 
@@ -242,7 +242,7 @@ class GitManager:
         repo=None
         clone_path = repo_url.split('github.com/')[-1].replace(".git","")
         if os.path.exists(clone_path):
-            repo =Repo(clone_path)
+            repo = Repo(clone_path)
         else:
             return "Repository not cloned. Clone it first."
 
@@ -369,7 +369,7 @@ class GitManager:
         repo=None
         clone_path = repo_url.split('github.com/')[-1].replace(".git","")
         if os.path.exists(clone_path):
-            repo =Repo(clone_path)
+            repo = Repo(clone_path)
         else:
             return "Repository not cloned. Clone it first."
 
@@ -389,7 +389,7 @@ class GitManager:
         repo=None
         clone_path = repo_url.split('github.com/')[-1].replace(".git","")
         if os.path.exists(clone_path):
-            repo =Repo(clone_path)
+            repo = Repo(clone_path)
         else:
             return "Repository not cloned. Clone it first."
 
@@ -413,7 +413,7 @@ class GitManager:
         repo=None
         clone_path = repo_url.split('github.com/')[-1].replace(".git","")
         if os.path.exists(clone_path):
-            repo =Repo(clone_path)
+            repo = Repo(clone_path)
         else:
             return "Repository not cloned. Clone it first."
 
