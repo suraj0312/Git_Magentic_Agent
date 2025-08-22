@@ -360,48 +360,6 @@ class GitManager:
                 return f"Merge conflict occurred while merging '{source_branch}' into '{target_branch}'."
             return f"Error merging branches: {e}"
 
-    def abort_merge(self,repo_url: str):
-        """
-        Abort an ongoing merge (like 'git merge --abort').
-        Args:
-            repo_url: Repository URL
-        """
-        repo=None
-        clone_path = repo_url.split('github.com/')[-1].replace(".git","")
-        if os.path.exists(clone_path):
-            repo = Repo(clone_path)
-        else:
-            return "Repository not cloned. Clone it first."
-
-        try:
-            repo.git.merge("--abort")
-            return "Merge aborted successfully."
-        except GitCommandError as e:
-            return f"Error aborting merge: {e}"
-
-    def continue_merge(self, repo_url: str, commit_message: str = "Merge conflict resolved"):
-        """
-        Continue a merge after conflicts are resolved.
-        Args:
-            repo_url: Repository URL
-            commit_message: Commit message for merge resolution.
-        """
-        repo=None
-        clone_path = repo_url.split('github.com/')[-1].replace(".git","")
-        if os.path.exists(clone_path):
-            repo = Repo(clone_path)
-        else:
-            return "Repository not cloned. Clone it first."
-
-        try:
-            if repo.is_dirty(untracked_files=True):
-                repo.index.commit(commit_message)
-                return "Merge continued and committed after resolving conflicts."
-            else:
-                return "No changes to commit. Ensure conflicts are resolved."
-        except GitCommandError as e:
-            return f"Error continuing merge: {e}"
-
     def get_merge_conflicts(self,repo_url: str):
         """
         List files with merge conflicts.
@@ -466,7 +424,13 @@ async def main(repo_url_list : list) -> None:
  
     task = f"""
 
-      switch to main branch and push the changes
+      1. Push the changes from test-dev-3 to the remote repository.
+      2. Push the changes from main to the remote repository.
+      3. Create Pull Request from test-dev-3 to main.
+      4. If not conflicted, merge the Pull Request.
+      5. If Conflicted, return the conflicted files.
+      6. If merged, push to remote repository.
+
       Repo URLs: {repo_url_list}
     """
    
